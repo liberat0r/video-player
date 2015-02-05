@@ -374,17 +374,17 @@
 				}
 
 				// Check if any part of the video is visible
-				if (videoTop < (window.pageYOffset + window.innerHeight) &&
-					videoLeft < (window.pageXOffset + window.innerWidth) &&
-					(videoTop + videoHeight) > window.pageYOffset &&
-					(videoLeft + videoWidth) > window.pageXOffset) {
+				if (module.videoCache[videoID].startingState === 'play') {
+					if (videoTop < (window.pageYOffset + window.innerHeight) &&
+						videoLeft < (window.pageXOffset + window.innerWidth) &&
+						(videoTop + videoHeight) > window.pageYOffset &&
+						(videoLeft + videoWidth) > window.pageXOffset) {
 
-					if (module.videoCache[videoID].startingState === 'play') {
 						domVideo.play();
-					}
+					} else {
 
-				} else {
-					domVideo.pause();
+						domVideo.pause();
+					}
 				}
 
 			});
