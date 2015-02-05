@@ -109,7 +109,8 @@
 
 			var videoID = $(this).attr('data-video-id');
 
-			if (this.duration && !module.videoCache[videoID].videoLoaded) {
+			if (this.duration && !module.videoCache[videoID].videoLoaded &&
+				this.readyState > 0) {
 
 				module.videoCache[videoID].videoLoadedPercent = (this.buffered.end(0) / this.duration) * 100;
 				// 'video preloading: ' + module.videoCache[videoID].videoLoadedPercent
