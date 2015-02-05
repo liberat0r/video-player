@@ -335,8 +335,6 @@
 		videosInView : function() {
 			"use strict";
 
-			console.log(module.videoCache);
-
 			// Check if these videos are in viewport
 			module.$playWhenInViewVideos.each(function() {
 
