@@ -361,14 +361,14 @@
 					// is probably overflowing
 					var $videoParent = $(this).parent();
 
-					videoTop = $videoParent.get(0).offsetTop;
-					videoLeft = $videoParent.get(0).offsetLeft;
+					videoTop = $videoParent.offset().top;
+					videoLeft = $videoParent.offset().left;
 					videoHeight = $videoParent.height();
 					videoWidth = $videoParent.width();
 				} else {
 					// Get the actual video's offsets
-					videoTop = this.offsetTop;
-					videoLeft = this.offsetLeft;
+					videoTop = $(this).offset().top;
+					videoLeft = $(this).offset().top;
 					videoHeight = $(this).height();
 					videoWidth = $(this).width();
 				}
