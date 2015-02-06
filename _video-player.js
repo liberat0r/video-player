@@ -87,10 +87,12 @@
 
 		var domVideo = $el.get(0);
 		var videoID = $el.attr('data-video-id');
-
-		window.clearTimeout(module.videoCache[videoID].progressStuckTimer);
+		
+		if (typeof module.videoCache[videoID].progressStuckTimer !== 'undefined') {
+			window.clearTimeout(module.videoCache[videoID].progressStuckTimer);
+		}
 		module.videoCache[videoID].videoLoadedPercent = 100;
-		domVideo.currentTime = 0;
+		domVideo.currentTime = 0; // todo: was 0
 		module.videoCache[videoID].videoLoaded = true;
 	};
 
@@ -101,67 +103,77 @@
 		var domVideo = $el.get(0);
 		var videoID = $el.attr('data-video-id');
 
-		domVideo.load();
+		// console.log('preloadVideo starting');
+		// console.log(domVideo.readyState);
+
+		// domVideo.load(); 
 		module.videoCache[videoID].previousPreloadPercent = -1;
 		module.videoCache[videoID].videoLoaded = false;
 
-		domVideo.addEventListener("progress", function() {
+		if (domVideo.readyState === 4) {
+			// HAVE_ENOUGH_DATA no preload required
 
-			var videoID = $(this).attr('data-video-id');
+			callback($el);
+			module.videoPreloadComplete($el);
+		} else {
+			// bind progress event and preload
+			domVideo.addEventListener("progress", function() {
 
-			if (this.duration && !module.videoCache[videoID].videoLoaded &&
-				this.readyState > 0) {
+				var videoID = $(this).attr('data-video-id');
 
-				module.videoCache[videoID].videoLoadedPercent = (this.buffered.end(0) / this.duration) * 100;
-				// 'video preloading: ' + module.videoCache[videoID].videoLoadedPercent
-				this.currentTime++;
+				if (this.readyState > 0 && this.duration && !module.videoCache[videoID].videoLoaded) {
 
-				module.videoCache[videoID].videoPreloadProgress = true;
-				// todo: video loading bar element
-				//self.$videoLoader.stop().animate({height: self.videoLoadedPercent + '%'}, 300);
+					module.videoCache[videoID].videoLoadedPercent = (this.buffered.end(0) / this.duration) * 100;
+					// console.log('video preloading: ' + module.videoCache[videoID].videoLoadedPercent);
+					this.currentTime++;
 
-				if (module.videoCache[videoID].previousPreloadPercent !== module.videoCache[videoID].videoLoadedPercent) {
-					window.clearTimeout(module.videoCache[videoID].progressStuckTimer);
-				}
+					module.videoCache[videoID].videoPreloadProgress = true;
+					// todo: video loading bar element
+					//self.$videoLoader.stop().animate({height: self.videoLoadedPercent + '%'}, 300);
 
-				module.videoCache[videoID].progressStuckTimer = setTimeout(function() {
-					// force playback start
+					if (module.videoCache[videoID].previousPreloadPercent !== module.videoCache[videoID].videoLoadedPercent) {
+						window.clearTimeout(module.videoCache[videoID].progressStuckTimer);
+					}
 
-					if (module.videoCache[videoID].previousPreloadPercent === module.videoCache[videoID].videoLoadedPercent &&
-						module.videoCache[videoID].videoLoadedPercent !== 100) {
-						// forcing video start because of late loading
+					module.videoCache[videoID].progressStuckTimer = setTimeout(function() {
+						// force playback start
+
+						if (module.videoCache[videoID].previousPreloadPercent === module.videoCache[videoID].videoLoadedPercent &&
+							module.videoCache[videoID].videoLoadedPercent !== 100) {
+							// forcing video start because of late loading
+
+							callback($(this));
+							module.videoPreloadComplete($(this));
+						}
+
+					}, 1000);
+
+
+					module.videoCache[videoID].previousPreloadPercent = module.videoCache[videoID].videoLoadedPercent;
+
+					if (module.videoCache[videoID].videoLoadedPercent == 100) {
+						// video loading completed start playback
 
 						module.videoPreloadComplete($(this));
 						callback($(this));
 					}
 
-				}, 1000);
+					// Check if preloading is fast enough to start playing
+					if ((this.buffered.end(0) - module.videoCache[videoID].previousVideoLoadTime) < ((Date.now() / 1000) - module.videoCache[videoID].previousVideoTime)) {
+						// forcing video start because of fast loading
 
+						module.videoPreloadComplete($(this));
+						callback($(this));
+					} else {
+						// update values
+						module.videoCache[videoID].previousVideoTime = Date.now() / 1000;
+						module.videoCache[videoID].previousVideoLoadTime = this.buffered.end(0);
+					}
 
-				module.videoCache[videoID].previousPreloadPercent = module.videoCache[videoID].videoLoadedPercent;
-
-				if (module.videoCache[videoID].videoLoadedPercent == 100) {
-					// video loading completed start playback
-
-					module.videoPreloadComplete($(this));
-					callback($(this));
 				}
 
-				// Check if preloading is fast enough to start playing
-				if ((this.buffered.end(0) - module.videoCache[videoID].previousVideoLoadTime) < ((Date.now() / 1000) - module.videoCache[videoID].previousVideoTime)) {
-					// forcing video start because of fast loading
-
-					module.videoPreloadComplete($(this));
-					callback($(this));
-				} else {
-					// update values
-					module.videoCache[videoID].previousVideoTime = Date.now() / 1000;
-					module.videoCache[videoID].previousVideoLoadTime = this.buffered.end(0);
-				}
-
-			}
-
-		}, false);
+			}, false);
+		}
 
 	};
 
@@ -305,7 +317,7 @@
 
 				// Bind on end event
 				domVideo.onended = function(e) {
-					this.currentTime = 0;
+					this.currentTime = 0; // todo: was 0
 					this.pause();
 				};
 			}
@@ -375,7 +387,10 @@
 				}
 
 				// Check if any part of the video is visible
-				if (module.videoCache[videoID].startingState === 'play') {
+				// console.log(module.videoCache[videoID]);
+				if (module.videoCache[videoID].startingState === 'play' && 
+					module.videoCache[videoID].videoLoaded === true) {
+
 					if (videoTop < (window.pageYOffset + window.innerHeight) &&
 						videoLeft < (window.pageXOffset + window.innerWidth) &&
 						(videoTop + videoHeight) > window.pageYOffset &&
@@ -406,6 +421,19 @@
 					// Init the cache object for this video
 					module.videoCache[videoIDCounter] = {};
 
+					// will trigger loadedmetadata event
+					this.load();
+
+					videoIDCounter++;
+				});
+
+				module.$videoElement.one('loadedmetadata', function(){
+					// console.log('loadedmetadata');
+
+					var videoID = $(this).attr('data-video-id');
+
+					this.pause();
+
 					if (typeof $(this).attr('data-video-preload') !== 'undefined' &&
 						$(this).attr('data-video-preload') === 'true') {
 						// Video is set to smart preload
@@ -414,27 +442,23 @@
 
 						// Set init video timestamp and load time will be
 						// used to establish if playback can start
-						module.videoCache[videoIDCounter].previousVideoTimestamp = Date.now() / 1000;
-						module.videoCache[videoIDCounter].previousVideoLoadTime = 0;
+						module.videoCache[videoID].previousVideoTimestamp = Date.now() / 1000;
+						module.videoCache[videoID].previousVideoLoadTime = 0;
 
 						// Start the preload iteration
 						module.preloadVideo($(this), function($el) {
+							// console.log('preloadVideo callback');
 
 							$.VideoPlayer.afterLoadInit($el);
 							$.VideoPlayer.resizeAdjust();
-
-							if (module.$playWhenInViewVideos.length > 0) {
-								$.VideoPlayer.videosInView();
-							}
 
 						});
 
 					} else {
 						// Normal init
+						module.videoCache[videoID].videoLoaded = true;
 						$.VideoPlayer.afterLoadInit($(this));
 					}
-
-					videoIDCounter++;
 				});
 
 				// If videos need to be centered bind
@@ -448,10 +472,6 @@
 
 						domVideo.addEventListener("loadedmetadata", function() {
 							$.VideoPlayer.resizeAdjust();
-
-							if (module.$playWhenInViewVideos.length > 0) {
-								$.VideoPlayer.videosInView();
-							}
 						}, false);
 					});
 
@@ -486,13 +506,9 @@
 
 				// If videos are to be played when in view
 				if (module.$playWhenInViewVideos.length > 0) {
-					module.$window.on('scroll', function() {
+					module.videosInViewTimer = setInterval(function(){
 						$.VideoPlayer.videosInView();
-					});
-
-					module.$window.resize(function() {
-						$.VideoPlayer.videosInView();
-					});
+					}, 100);
 				}
 
 			}
